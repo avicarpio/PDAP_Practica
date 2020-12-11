@@ -5,8 +5,6 @@ ads = audioDatastore(db_path, ...
     'FileExtensions','.wav', ...
     'LabelSource','foldernames');
 
-ads1 = splitEachLabel(ads,0.05);
+ads_reduit = splitEachLabel(ads,0.05);
 
-[data,dataInfo] = read(ads1);
-
-[audio1,fs] = audioread(dataInfo.FileName);
+[ads1,ads2,ads3,ads4] = splitEachLabel(ads,0.25,0.25,0.25);
