@@ -7,6 +7,5 @@ ads = audioDatastore(db_path, ...
 
 ads1 = splitEachLabel(ads,0.05);
 
-[data,dataInfo] = read(ads1);
+[audio1,info] = read(ads1);
 
-[audio1,fs] = audioread(dataInfo.FileName);
