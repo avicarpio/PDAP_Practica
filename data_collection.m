@@ -6,5 +6,3 @@ ads = audioDatastore(db_path, ...
     'LabelSource','foldernames');
 
 ads1 = splitEachLabel(ads,0.05);
-
-audioFeatureExtractor(
