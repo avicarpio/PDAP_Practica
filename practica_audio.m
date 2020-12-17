@@ -1,9 +1,9 @@
 path = "audioDB";%Adreça a la carpeta que conté la base de dades d’àudio
-fs = 44.1e3;
-methodML = "knn" ;% knn , cart , svm , gmm
+methodML = "cart" ;% knn , cart , svm , gmm , 4fcv
 PercentOfDataSet = 5; 
 % Segons el classificador que escullen s'han d'inizialitzar els parametres
 % corresponents
+fs = 44.1e3;
 switch methodML
     case 'knn' 
         knn_K = 5; 
@@ -15,6 +15,14 @@ switch methodML
     case 'svm'
         t = templateSVM('KernelFunction','rbf','Standardize',true);    
     case 'gmm'
+        
+    case '4fcv'
+        knn_K = 5; 
+        knn_NSMethod = 'kd-tree';
+        knn_Distance = 'euclidean';
+        knn_Standardize = 1;
+        cart_showModel = 0;
+        t = templateSVM('KernelFunction','rbf','Standardize',true);
 
 end
 % knn_K , svm_Kernel , gmm_N;
@@ -153,46 +161,200 @@ learnGT3 = labelsFull;
 learnDB = [learnDB1;learnDB2;learnDB3];
 learnGT = [learnGT1;learnGT2;learnGT3];
 
-%KNN Classificador
 
-KNN = fitcknn(learnDB,learnGT,'NumNeighbors',knn_K,'NSMethod',knn_NSMethod,'Distance',knn_Distance,'Standardize',knn_Standardize);
+switch methodML
+    case 'knn' 
+        %KNN Classificador
+        KNN = fitcknn(learnDB,learnGT,'NumNeighbors',knn_K,'NSMethod',knn_NSMethod,'Distance',knn_Distance,'Standardize',knn_Standardize);
+        fprintf('KNN Predict');
+        resultatKNN = predict(KNN,testDB);
+    case 'cart'
+        %CART Classificador
+        CART = fitctree(learnDB,learnGT);
+        fprintf('CART Predict');
+        resultatCART = predict(CART,testDB);
+    case 'svm'
+        %SVM Classificador
+        svmModel = fitcecoc(learnDB,learnGT,'Learner',t);
+        fprintf('SVM Predict');
+        resultatSVM = predict(svmModel,testDB); 
+    case 'gmm'
+        %GMM Classificador
 
-%resultat = predict(KNN,testDB);
+        % Definim l'array en el que registrarem els resultats
+        resultsArray = cell(size(learnDB,1),1);
 
-%encerts = 0;
+        % Definim l'array en el que guardarem el model de cada classe
+        gmmodel = cell(15, 1);
+        classTypes = ["beach","bus","cafe-restaurant","car","city_center","forest_path","grocery_store","home","library","metro_station","office","park","residential_area","train","tram"];
+        % Recorrem datasets
+        for k = 1:size(learnDB,1)
+           % Recorrem classes
+            for j = 1:length(classTypes)
+                % Prenem la posició l'element respecte la classe concreta i en
+                % prenem el valor
+                classPosition = find( learnGT{k} == classTypes(j));
+                positionValue = learnDB{k}( classPosition, :);
+                % Entrenem GMM
+                gmmModel{j} = fitgmdist( positionValue, 6, 'RegularizationValue', 0.1, 'CovarianceType', 'diagonal');
+            end
 
-%for i=1:length(resultat)
-    
-%    if resultat(i) == testGT(i)
-%        encerts = encerts + 1;
-%    end
-    
-%end
+        end
+        
+        fprintf('GMM Predict');
+        pdfs = [];
+        %Recorrem valors
+        for j = 1:testSize
+            % Recorrem classes
+            for i = 1: numTypes
+                % calculem la probabilitat del parametre amb la pdf
+                pdfs(j,i) = pdf(gmmModel{i}, testDB{k}(j,:));
+            end
+            % Trobem valor màxim
+            label(j) = find(pdfs(j, :) == max(pdfs(j, :)));
+        end
+        % Guardem resultat del dataset
+        resultatGMM = label;
+        
+    case '4fcv'
+        %Entrenament classificadors    
 
-%percentatgeErrorKNN = encerts/length(resultats) * 100;
+        %KNN Classificador
+        KNN = fitcknn(learnDB,learnGT,'NumNeighbors',knn_K,'NSMethod',knn_NSMethod,'Distance',knn_Distance,'Standardize',knn_Standardize);
 
-%CART Classificador
+        %CART Classificador
+        CART = fitctree(learnDB,learnGT);
 
-%CART = fitctree(learnDB,learnGT);
+        %SVM Classificador
+        svmModel = fitcecoc(learnDB,learnGT,'Learner',t);    
 
-%SVM Classificador
+        %GMM Classificador
 
-%svmModel = fitcecoc(learnDB,learnGT,'Learner',t);
+        % Definim l'array en el que registrarem els resultats
+        resultsArray = cell(size(learnDB,1),1);
 
-%GMM Classificador
+        % Definim l'array en el que guardarem el model de cada classe
+        gmmodel = cell(15, 1);
+        classTypes = ["beach","bus","cafe-restaurant","car","city_center","forest_path","grocery_store","home","library","metro_station","office","park","residential_area","train","tram"];
+        % Recorrem datasets
+        for k = 1:size(learnDB,1)
+           % Recorrem classes
+            for j = 1:length(classTypes)
+                % Prenem la posició l'element respecte la classe concreta i en
+                % prenem el valor
+                classPosition = find( learnGT{k} == classTypes(j));
+                positionValue = learnDB{k}( classPosition, :);
+                % Entrenem GMM
+                gmmModel{j} = fitgmdist( positionValue, 6, 'RegularizationValue', 0.1, 'CovarianceType', 'diagonal');
+            end
 
-%TO-DO Configurar el classificador GMM amb la funcio fitgmdist
+        end
 
-%fitgmdist
 
-%% 2. Per a cadascuna de les 4 iteracions del 4FCV cal fer:
-for i=1:4
-    %2.1 Calcular dos matrius
-    
-    %2.2 Entrenament d’un mètode de classificació
+        fprintf('KNN Predict');
+        resultatKNN = predict(KNN,testDB);
 
-    %2.3 Classificació del conjunt de test 
+        fprintf('CART Predict');
+        resultatCART = predict(CART,testDB);
+
+        fprintf('SVM Predict');
+        resultatSVM = predict(svmModel,testDB); 
+
+        fprintf('GMM Predict');
+        pdfs = [];
+        %Recorrem valors
+        for j = 1:testSize
+            % Recorrem classes
+            for i = 1: numTypes
+                % calculem la probabilitat del parametre amb la pdf
+                pdfs(j,i) = pdf(gmmModel{i}, testDB{k}(j,:));
+            end
+            % Trobem valor màxim
+            label(j) = find(pdfs(j, :) == max(pdfs(j, :)));
+        end
+        % Guardem resultat del dataset
+        resultatGMM = label;
 end
 
 
+
+
 %% 3. Mostrar els resultats d’eficiència de classificació
+
+encertsKNN = 0;
+encertsCART = 0;
+encertsSVM = 0;
+encertsGMM = 0;
+
+switch methodML
+    case 'knn' 
+        for j=1:length(resultatKNN)
+            if resultatKNN(j) == testGT(j)
+                encertsKNN = encertsKNN + 1;
+            end
+        end
+        percentatgeEncertsKNN = encertsKNN/length(resultatKNN) * 100;
+        fprintf('KNN: %.2f', percentatgeEncertsKNN);
+        fprintf('\n');
+    case 'cart'
+        for j=1:length(resultatCART)
+            if resultatCART(j) == testGT(j)
+                encertsCART = encertsCART + 1;
+            end
+        end
+        percentatgeEncertsCART = encertsCART/length(resultatCART) * 100;
+        fprintf('CART: %.2f', percentatgeEncertsCART);
+        fprintf('\n');
+    case 'svm'
+        for j=1:length(resultatSVM)
+            if resultatSVM(j) == testGT(j)
+                encertsSVM = encertsSVM + 1;
+            end
+        end
+        percentatgeEncertsSVM = encertsSVM/length(resultatSVM) * 100;
+        fprintf('SVM: %.2f', percentatgeEncertsSVM);
+        fprintf('\n');
+    case 'gmm'
+        for j=1:length(resultatGMM)
+            if resultatGMM(j) == testGT(j)
+                encertsGMM = encertsGMM + 1;
+            end
+        end
+        percentatgeEncertsGMM = encertsGMM/length(resultatGMM) * 100;
+        fprintf('GMM: %.2f', percentatgeEncertsGMM);
+        fprintf('\n');
+    case '4fcv'
+        for j=1:length(resultatKNN)
+            if resultatKNN(j) == testGT(j)
+                encertsKNN = encertsKNN + 1;
+            end
+        end
+        percentatgeEncertsKNN = encertsKNN/length(resultatKNN) * 100;
+        for j=1:length(resultatCART)
+            if resultatCART(j) == testGT(j)
+                encertsCART = encertsCART + 1;
+            end
+        end
+        percentatgeEncertsCART = encertsKNN/length(resultatKNN) * 100;
+        for j=1:length(resultatSVM)
+            if resultatSVM(j) == testGT(j)
+                encertsSVM = encertsSVM + 1;
+            end
+        end
+        percentatgeEncertsSVM = encertsKNN/length(resultatKNN) * 100;
+        for j=1:length(resultatGMM)
+            if resultatGMM(j) == testGT(j)
+                encertsGMM = encertsGMM + 1;
+            end
+        end
+        percentatgeEncertsGMM = encertsKNN/length(resultatKNN) * 100;
+        
+        fprintf('KNN: %.2f', percentatgeEncertsKNN);
+        fprintf('\n');
+        fprintf('CART: %.2f', percentatgeEncertsCART);
+        fprintf('\n');
+        fprintf('SVM: %.2f', percentatgeEncertsSVM);
+        fprintf('\n');
+        fprintf('GMM: %.2f', percentatgeEncertsGMM);
+        fprintf('\n');
+end
